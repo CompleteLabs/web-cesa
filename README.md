@@ -30,7 +30,7 @@ CESA adalah aplikasi web berbasis Laravel yang sudah terintegrasi dengan Filamen
 
 1. Clone repository:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/CompleteLabs/web-cesa.git
    cd web-cesa
    ```
 
