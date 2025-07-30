@@ -28,9 +28,20 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
     protected function gate(): void
     {
         Gate::define('viewHorizon', function ($user = null) {
-            return in_array(optional($user)->email, [
-                //
-            ]);
+            // Allow access in local environment
+            if (app()->environment('local')) {
+                return true;
+            }
+
+            // Check if user exists and has permission
+            if (!$user) {
+                return false;
+            }
+
+            // Check for super admin role or specific permission
+            return $user->hasRole('super_admin') ||
+                   $user->can('view_horizon') ||
+                   $user->hasPermissionTo('view_horizon');
         });
     }
 }

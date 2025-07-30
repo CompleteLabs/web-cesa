@@ -28,6 +28,8 @@ CESA adalah aplikasi web berbasis Laravel yang sudah terintegrasi dengan Filamen
 
 ## Installation
 
+### 🚀 Quick Setup (Recommended)
+
 1. Clone repository:
    ```bash
    git clone https://github.com/CompleteLabs/web-cesa.git
@@ -55,7 +57,16 @@ CESA adalah aplikasi web berbasis Laravel yang sudah terintegrasi dengan Filamen
    php artisan key:generate
    ```
 
-6. Jalankan migrasi database:
+6. **Setup database dan aplikasi (satu perintah):**
+   ```bash
+   php artisan cesa:install
+   ```
+
+### Manual Installation
+
+Jika ingin setup manual, ikuti langkah-langkah berikut:
+
+1. Jalankan migrasi database:
    ```bash
    php artisan migrate
    ```

@@ -11,6 +11,7 @@ use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class UsersTable
 {
@@ -43,8 +44,16 @@ class UsersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                    ForceDeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function ($records) {
+                            $recordsToDelete = $records->reject(fn ($record) => $record->getKey() === Auth::id());
+                            $recordsToDelete->each->delete();
+                        }),
+                    ForceDeleteBulkAction::make()
+                        ->action(function ($records) {
+                            $recordsToDelete = $records->reject(fn ($record) => $record->getKey() === Auth::id());
+                            $recordsToDelete->each->forceDelete();
+                        }),
                     RestoreBulkAction::make(),
                 ]),
             ]);
