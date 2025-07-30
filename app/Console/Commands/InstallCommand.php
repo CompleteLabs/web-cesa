@@ -47,6 +47,7 @@ class InstallCommand extends Command
         $this->line('   • Permissions & roles setup');
         $this->line('   • Super admin user creation');
         $this->line('   • Filament Shield configuration');
+        $this->line('   • Auto-detect Export/Import capabilities');
         $this->newLine();
 
         if (!$this->confirm('Do you want to continue?', true)) {
@@ -67,11 +68,14 @@ class InstallCommand extends Command
             // Step 4: Generate Shield Permissions
             $this->step4_GenerateShieldPermissions();
 
-            // Step 5: Create Super Admin
-            $this->step5_CreateSuperAdmin();
+            // Step 5: Auto-detect Export/Import
+            $this->step5_DetectExportImport();
 
-            // Step 6: Final Setup
-            $this->step6_FinalSetup();
+            // Step 6: Create Super Admin
+            $this->step6_CreateSuperAdmin();
+
+            // Step 7: Final Setup
+            $this->step7_FinalSetup();
 
             $this->displaySuccessMessage();
         } catch (\Exception $e) {
@@ -161,9 +165,40 @@ class InstallCommand extends Command
         $this->info('✅ Shield permissions generated and assigned');
     }
 
-    private function step5_CreateSuperAdmin()
+    private function step5_DetectExportImport()
     {
-        $this->info('👑 Step 5: Creating Super Admin User');
+        $this->info('🔍 Step 5: Auto-detecting Export/Import Capabilities');
+
+        // Run our custom detection command
+        Artisan::call('shield:detect-export-import', [
+            '--assign-to-super-admin' => true
+        ]);
+
+        // Get the output from the command
+        $output = Artisan::output();
+
+        // Parse and display relevant information
+        $this->displayDetectionResults($output);
+
+        $this->info('✅ Export/Import permissions detected and configured');
+    }
+
+    private function displayDetectionResults($output)
+    {
+        // Extract useful information from detection command output
+        $lines = explode("\n", $output);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (str_contains($line, 'Found exporter:') || str_contains($line, 'Found importer:')) {
+                $this->line("   • " . $line);
+            }
+        }
+    }
+
+    private function step6_CreateSuperAdmin()
+    {
+        $this->info('👑 Step 6: Creating Super Admin User');
 
         // Email validation loop
         $email = $this->askValidEmail();
@@ -216,16 +251,33 @@ class InstallCommand extends Command
             return $email;
         }
     }
-    private function step6_FinalSetup()
+    private function step7_FinalSetup()
     {
-        $this->info('🔧 Step 6: Final Setup');
+        $this->info('🔧 Step 7: Final Setup');
 
-        // Clear caches
-        Artisan::call('config:cache');
-        Artisan::call('route:cache');
-        Artisan::call('view:cache');
+        if (app()->environment('production')) {
+            // Production: Optimize everything for performance
+            $this->line('   • Optimizing for production...');
 
-        $this->info('✅ Application caches updated');
+            Artisan::call('optimize');
+            $this->line('   • Laravel optimization completed');
+
+            Artisan::call('filament:optimize');
+            $this->line('   • Filament optimization completed');
+
+        } else {
+            // Development: Clear caches to avoid issues
+            $this->line('   • Clearing caches for development...');
+
+            Artisan::call('config:clear');
+            Artisan::call('route:clear');
+            Artisan::call('view:clear');
+            Artisan::call('cache:clear');
+
+            $this->line('   • Development caches cleared');
+        }
+
+        $this->info('✅ Application setup completed');
     }
 
     private function displaySuccessMessage()
@@ -239,6 +291,7 @@ class InstallCommand extends Command
         $this->line('   ✅ Custom permissions created');
         $this->line('   ✅ Roles configured');
         $this->line('   ✅ Shield permissions generated');
+        $this->line('   ✅ Export/Import capabilities detected');
         $this->line('   ✅ Super admin user created');
         $this->line('   ✅ Application caches updated');
 
