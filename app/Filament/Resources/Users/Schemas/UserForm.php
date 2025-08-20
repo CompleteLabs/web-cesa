@@ -26,7 +26,6 @@ class UserForm
                     ->multiple()
                     ->preload()
                     ->searchable(),
-                DateTimePicker::make('email_verified_at'),
                 TextInput::make('password')
                     ->password()
                     ->required(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\CreateRecord)
