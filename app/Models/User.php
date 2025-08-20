@@ -6,6 +6,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -13,6 +15,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use App\Enums\PermissionType;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -29,6 +32,8 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'email_verified_at',
+        'resource_permission',
+        'default_company_id',
     ];
 
     /**
@@ -51,7 +56,79 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'resource_permission' => PermissionType::class,
         ];
+    }
+
+    /**
+     * Get the default company for the user.
+     */
+    public function defaultCompany(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'default_company_id');
+    }
+
+    /**
+     * The companies that the user belongs to.
+     */
+    public function companies(): BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'company_user')
+            ->withPivot(['role', 'is_active'])
+            ->withTimestamps()
+            ->wherePivot('is_active', true);
+    }
+
+    /**
+     * Get all company IDs that the user has access to
+     */
+    public function getCompanyIds(): array
+    {
+        return $this->companies->pluck('id')->toArray();
+    }
+
+    /**
+     * Check if user has access to a specific company
+     */
+    public function hasAccessToCompany($companyId): bool
+    {
+        return $this->companies()->where('companies.id', $companyId)->exists();
+    }
+
+    /**
+     * Check if user belongs to the same company as another user
+     */
+    public function belongsToSameCompany(User $otherUser): bool
+    {
+        // Check if users share any company
+        $userCompanyIds = $this->companies->pluck('id');
+        $otherUserCompanyIds = $otherUser->companies->pluck('id');
+        
+        return $userCompanyIds->intersect($otherUserCompanyIds)->isNotEmpty();
+    }
+
+    /**
+     * Check if user has global permission
+     */
+    public function hasGlobalPermission(): bool
+    {
+        return $this->resource_permission === PermissionType::GLOBAL;
+    }
+
+    /**
+     * Check if user has group permission
+     */
+    public function hasGroupPermission(): bool
+    {
+        return $this->resource_permission === PermissionType::GROUP;
+    }
+
+    /**
+     * Check if user has individual permission
+     */
+    public function hasIndividualPermission(): bool
+    {
+        return $this->resource_permission === PermissionType::INDIVIDUAL;
     }
 
     public function canAccessPanel(Panel $panel): bool

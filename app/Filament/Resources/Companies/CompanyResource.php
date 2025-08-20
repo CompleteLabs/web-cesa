@@ -1,15 +1,16 @@
 <?php
 
-namespace App\Filament\Resources\Users;
+namespace App\Filament\Resources\Companies;
 
 use App\Enums\PermissionType;
-use App\Filament\Resources\Users\Pages\CreateUser;
-use App\Filament\Resources\Users\Pages\EditUser;
-use App\Filament\Resources\Users\Pages\ListUsers;
-use App\Filament\Resources\Users\Pages\ViewUser;
-use App\Filament\Resources\Users\Schemas\UserForm;
-use App\Filament\Resources\Users\Schemas\UserInfolist;
-use App\Filament\Resources\Users\Tables\UsersTable;
+use App\Filament\Resources\Companies\Pages\CreateCompany;
+use App\Filament\Resources\Companies\Pages\EditCompany;
+use App\Filament\Resources\Companies\Pages\ListCompanies;
+use App\Filament\Resources\Companies\Pages\ViewCompany;
+use App\Filament\Resources\Companies\Schemas\CompanyForm;
+use App\Filament\Resources\Companies\Schemas\CompanyInfolist;
+use App\Filament\Resources\Companies\Tables\CompaniesTable;
+use App\Models\Company;
 use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -22,17 +23,19 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
-class UserResource extends Resource
+class CompanyResource extends Resource
 {
-    protected static ?string $model = User::class;
+    protected static ?string $model = Company::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
+    protected static ?string $recordTitleAttribute = 'name';
+    
     protected static string | UnitEnum | null $navigationGroup = 'System';
-
+    
     public static function getNavigationBadge(): ?string
     {
-        $query = static::getModel()::query();
+        $query = static::getModel()::query()->where('is_active', true);
         
         // Apply scope for navigation badge count
         $query = static::scopeQuery($query);
@@ -40,19 +43,20 @@ class UserResource extends Resource
         $count = $query->count();
         return $count > 0 ? (string) $count : null;
     }
+
     public static function form(Schema $schema): Schema
     {
-        return UserForm::configure($schema);
+        return CompanyForm::configure($schema);
     }
 
     public static function infolist(Schema $schema): Schema
     {
-        return UserInfolist::configure($schema);
+        return CompanyInfolist::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return UsersTable::configure($table);
+        return CompaniesTable::configure($table);
     }
 
     public static function getRelations(): array
@@ -65,10 +69,10 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListUsers::route('/'),
-            'create' => CreateUser::route('/create'),
-            'view' => ViewUser::route('/{record}'),
-            'edit' => EditUser::route('/{record}/edit'),
+            'index' => ListCompanies::route('/'),
+            'create' => CreateCompany::route('/create'),
+            'view' => ViewCompany::route('/{record}'),
+            'edit' => EditCompany::route('/{record}/edit'),
         ];
     }
 
@@ -103,7 +107,7 @@ class UserResource extends Resource
             return $query->whereRaw('1 = 0');
         }
         
-        // Super admin can see all users
+        // Super admin can see all companies
         if ($user->hasRole('super_admin')) {
             return $query;
         }
@@ -111,33 +115,29 @@ class UserResource extends Resource
         // Check resource permission level
         switch ($user->resource_permission) {
             case PermissionType::GLOBAL:
-                // Can see all users
+                // Can see all companies
                 return $query;
                 
             case PermissionType::GROUP:
-                // Can see users from the same companies
+            case PermissionType::INDIVIDUAL:
+                // Can only see companies they belong to
                 $companyIds = $user->companies()->pluck('companies.id')->toArray();
                 
                 if (empty($companyIds)) {
-                    // User has no companies, can only see themselves
-                    return $query->where('users.id', $user->id);
+                    // User has no companies, return empty result
+                    return $query->whereRaw('1 = 0');
                 }
                 
-                return $query->where(function (Builder $q) use ($companyIds, $user) {
-                    $q->whereHas('companies', function (Builder $query) use ($companyIds) {
-                        $query->whereIn('companies.id', $companyIds);
-                    })->orWhere('users.id', $user->id); // Include self
-                });
+                return $query->whereIn('id', $companyIds);
                 
-            case PermissionType::INDIVIDUAL:
             default:
-                // Can only see themselves
-                return $query->where('users.id', $user->id);
+                // Default to no access
+                return $query->whereRaw('1 = 0');
         }
     }
     
     /**
-     * Check if user can view a specific record
+     * Check if user can view a specific company
      */
     public static function canView(Model $record): bool
     {
@@ -159,18 +159,33 @@ class UserResource extends Resource
                 return true;
                 
             case PermissionType::GROUP:
-                // Can view if in same company or is self
-                return $record->id === $user->id || $user->belongsToSameCompany($record);
-                
             case PermissionType::INDIVIDUAL:
+                // Can view if user belongs to this company
+                return $user->hasAccessToCompany($record->id);
+                
             default:
-                // Can only view self
-                return $record->id === $user->id;
+                return false;
         }
     }
     
     /**
-     * Check if user can edit a specific record
+     * Check if user can create companies
+     */
+    public static function canCreate(): bool
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        
+        if (!$user) {
+            return false;
+        }
+        
+        // Only super admin and global permission users can create companies
+        return $user->hasRole('super_admin') || $user->resource_permission === PermissionType::GLOBAL;
+    }
+    
+    /**
+     * Check if user can edit a specific company
      */
     public static function canEdit(Model $record): bool
     {
@@ -189,25 +204,26 @@ class UserResource extends Resource
         // Check permission level
         switch ($user->resource_permission) {
             case PermissionType::GLOBAL:
-                // Can edit all except super_admin users (unless they are super_admin)
-                return !$record->hasRole('super_admin') || $user->hasRole('super_admin');
+                return true;
                 
             case PermissionType::GROUP:
-                // Can edit if in same company (except super_admin users)
-                if ($record->hasRole('super_admin')) {
+                // Can edit if user belongs to this company and has appropriate role
+                if (!$user->hasAccessToCompany($record->id)) {
                     return false;
                 }
-                return $record->id === $user->id || $user->belongsToSameCompany($record);
+                // Check if user has admin role in this company
+                $pivot = $user->companies()->where('companies.id', $record->id)->first();
+                return $pivot && $pivot->pivot->role === 'admin';
                 
             case PermissionType::INDIVIDUAL:
             default:
-                // Can only edit self
-                return $record->id === $user->id;
+                // Cannot edit companies
+                return false;
         }
     }
     
     /**
-     * Check if user can delete a specific record  
+     * Check if user can delete a specific company  
      */
     public static function canDelete(Model $record): bool
     {
@@ -218,33 +234,39 @@ class UserResource extends Resource
             return false;
         }
         
-        // Prevent self-deletion
-        if ($record->id === $user->id) {
+        // Only super admin can delete companies
+        return $user->hasRole('super_admin');
+    }
+    
+    /**
+     * Check if user can restore a specific company
+     */
+    public static function canRestore(Model $record): bool
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        
+        if (!$user) {
             return false;
         }
         
-        // Super admin can delete all (except self)
-        if ($user->hasRole('super_admin')) {
-            return true;
+        // Only super admin can restore companies
+        return $user->hasRole('super_admin');
+    }
+    
+    /**
+     * Check if user can force delete a specific company
+     */
+    public static function canForceDelete(Model $record): bool
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        
+        if (!$user) {
+            return false;
         }
         
-        // Check permission level
-        switch ($user->resource_permission) {
-            case PermissionType::GLOBAL:
-                // Can delete all except super_admin users
-                return !$record->hasRole('super_admin');
-                
-            case PermissionType::GROUP:
-                // Can delete if in same company (except super_admin users)
-                if ($record->hasRole('super_admin')) {
-                    return false;
-                }
-                return $user->belongsToSameCompany($record);
-                
-            case PermissionType::INDIVIDUAL:
-            default:
-                // Cannot delete anyone (including self)
-                return false;
-        }
+        // Only super admin can force delete companies
+        return $user->hasRole('super_admin');
     }
 }

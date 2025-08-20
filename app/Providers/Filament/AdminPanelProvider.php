@@ -21,6 +21,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\Support\Enums\Width;
+use App\Support\PluginManager;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -87,19 +88,22 @@ class AdminPanelProvider extends PanelProvider
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make()
                     ->gridColumns([
                         'default' => 1,
-                        'sm' => 2,
-                        'lg' => 3
+                        'sm'      => 1,
+                        'lg'      => 2,
+                        'xl'      => 3,
                     ])
                     ->sectionColumnSpan(1)
                     ->checkboxListColumns([
                         'default' => 1,
-                        'sm' => 2,
-                        'lg' => 4,
+                        'sm'      => 1,
+                        'lg'      => 2,
+                        'xl'      => 3,
                     ])
                     ->resourceCheckboxListColumns([
                         'default' => 1,
-                        'sm' => 2,
+                        'sm'      => 2,
                     ]),
+                PluginManager::make(),
             ])
             ->authMiddleware([
                 Authenticate::class,

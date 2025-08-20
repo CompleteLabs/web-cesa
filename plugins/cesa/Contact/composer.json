@@ -1,0 +1,31 @@
+{
+    "name": "cesa/contact",
+    "description": "Contact management plugin for CESA",
+    "type": "laravel-plugin",
+    "authors": [
+        {
+            "name": "CESA Team",
+            "email": "support@cesa.test"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Cesa\\Contact\\Providers\\ContactServiceProvider"
+            ],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Cesa\\Contact\\": "",
+            "Cesa\\Contact\\Database\\Factories\\": "Database/Factories/",
+            "Cesa\\Contact\\Database\\Seeders\\": "Database/Seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Cesa\\Contact\\Tests\\": "Tests/"
+        }
+    }
+}

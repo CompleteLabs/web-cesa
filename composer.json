@@ -15,7 +15,8 @@
         "laravel/sanctum": "^4.0",
         "laravel/telescope": "^5.10",
         "laravel/tinker": "^2.10.1",
-        "spatie/laravel-activitylog": "^4.10"
+        "spatie/laravel-activitylog": "^4.10",
+        "wikimedia/composer-merge-plugin": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -67,6 +68,14 @@
     "extra": {
         "laravel": {
             "dont-discover": []
+        },
+        "merge-plugin": {
+            "include": [
+                "plugins/*/*/composer.json"
+            ],
+            "recurse": true,
+            "replace": false,
+            "merge-dev": true
         }
     },
     "config": {
@@ -75,7 +84,8 @@
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "wikimedia/composer-merge-plugin": true
         }
     },
     "minimum-stability": "stable",

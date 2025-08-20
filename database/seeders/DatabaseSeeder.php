@@ -13,6 +13,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Run CompanySeeder to create default company
+        $this->call([
+            CompanySeeder::class,
+        ]);
     }
 }
